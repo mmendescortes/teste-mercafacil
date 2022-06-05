@@ -1,0 +1,53 @@
+const knexConfig = require('../db/knexfile');
+const postgres = require('knex')(knexConfig["production_postgresql"])
+
+async function postgres_up() {
+    const exists = await postgres.schema.hasTable('contacts')
+    if (exists) return false;
+    return postgres.schema.createTable('contacts', function(table) {
+        table.increments('id');
+        table.string('nome', 100).notNullable();
+        table.string('celular', 13).notNullable();
+        table.timestamps();
+    });
+};
+
+function postgres_down() {
+    return postgres.dropTable('contacts');
+};
+
+async function UploadContacts(datas) {
+    dataInserted = []
+    datas.forEach(data => {
+        data.name = data.name.toUpperCase();
+        if (/\d{12,13}/g.test(String(data.cellphone)) == true) {
+            dataInserted.push({
+                "nome": data.name,
+                "celular": data.cellphone
+            });
+        }
+    });
+    console.log(dataInserted)
+    if(!dataInserted.length) {
+        return {
+            status: 400,
+            json: "Empty or wrong data."
+        }
+    }
+    return new Promise((res)=>{
+        postgres('contacts').insert(dataInserted).returning('*').then(function (rows) {
+            console.log(rows.length); // = rows affected
+            res({
+                status: 201,
+                json: "Inserted " + rows.length + " records."
+            })
+
+        })
+    });
+}
+
+    module.exports = {
+        postgres_up,
+        postgres_down,
+        UploadContacts,
+    }

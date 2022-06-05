@@ -1,0 +1,53 @@
+const knexConfig = require('../db/knexfile');
+const mysql = require('knex')(knexConfig["production_mysql"]);
+
+async function mysql_up() {
+    const exists = await mysql.schema.hasTable('contacts')
+    if (exists) return false;
+    return mysql.schema.createTable('contacts', function(table) {
+        table.increments('id');
+        table.string('nome', 200).notNullable();
+        table.string('celular', 20).notNullable();
+        table.timestamps();
+    });
+};
+
+function mysql_down() {
+    return mysql.schema.dropTable('contacts');
+};
+
+
+async function UploadContacts(datas) {
+        dataInserted = []
+        datas.forEach(data => {
+            data.name = data.name.toUpperCase();
+            if (/\+\d{1,3} \(\d{2}\) \d{4,5}-\d{4}/g.test(String(data.cellphone)) == true) {
+                dataInserted.push({
+                    "nome": data.name,
+                    "celular": data.cellphone
+                });
+            }
+        });
+        if(!dataInserted.length) {
+            return {
+                status: 400,
+                json: "Empty or wrong data."
+            }
+        }
+        return new Promise((res)=>{
+            mysql('contacts').insert(dataInserted).returning('*').then(function (rows) {
+                console.log(rows.length); // = rows affected
+                res({
+                    status: 201,
+                    json: "Inserted " + rows.length + " records."
+                })
+    
+            })
+        });
+}
+
+module.exports = {
+    mysql_down,
+    mysql_up,
+    UploadContacts,
+}
